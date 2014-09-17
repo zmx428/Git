@@ -72,6 +72,19 @@ logisticPerformance = function(train.model, testset, dependent.variable)
   AUC = performance(predROCR, "auc")@y.values
   return (c("ACC", ACC, "AUC", AUC))
 }
+RandomForestPerformance = function(train.model, testset, dependent.variable)
+{
+  predRF = predict(modRF,  newdata = testset, type = "prob")[,2]
+  confusionLog = table(dependent.variable, predRF >= 0.5)
+  # accurancy
+  ACC = (confusionLog[1,1]+confusionLog[2,2])/sum(confusionLog)
+  predROCR = prediction(predRF, dependent.variable)
+  perfROCR = performance(predROCR, "tpr", "fpr")
+  plot(perfROCR, colorize=TRUE)
+  # Compute AUC
+  AUC = performance(predROCR, "auc")@y.values
+  return (c("ACC", ACC, "AUC", AUC))
+}
 
 #train
 log_train = glm(Survived ~ Sex + Pclass + Age + Fare + SibSp + Parch, data = train, family = "binomial")
@@ -96,6 +109,8 @@ varImpPlot(modRF)
 (modRF$confusion[1,1]+modRF$confusion[2,2])/sum(modRF$confusion)
 #importance
 round(importance(modRF), 2)
+RandomForestPerformance(modRF, test, test$Survived)
+
 
 #impute df.infer
 sub = df.infer$Age[df.infer$Pclass == 1]
@@ -107,10 +122,14 @@ df.infer$Age[df.infer$Pclass == 2][is.na(df.infer$Age[df.infer$Pclass == 2])] = 
 sub = df.infer$Age[df.infer$Pclass == 3]
 med = median(sub, na.rm = TRUE)
 df.infer$Age[df.infer$Pclass == 3][is.na(df.infer$Age[df.infer$Pclass == 3])] = med
+df.infer$Fare[is.na(df.infer$Fare)] = median(df.infer$Fare, na.rm = TRUE)
 
 #submission
 setwd("D:/Data/Me/My Work/Programming/Data Science/Practices/Titanic")
+#LR
 my.predictions = predict(log_train_update, newdata = df.infer, type = "response")
+#RF
+my.predictions = predict(modRF, newdata = df.infer, type = "prob")[,2]
 threshold = 0.5
 my.predictions[my.predictions >= threshold] = 1
 my.predictions[my.predictions < threshold] = 0
@@ -118,6 +137,6 @@ submission = data.frame(PassengerId = test.raw$PassengerId, Survived = my.predic
 write.csv(submission, "submission.csv", row.names=FALSE)
 
 #temp operation
-show = df.infer
+show = my.predictions
 summary(show)
 str(show)
